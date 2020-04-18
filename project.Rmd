@@ -1,0 +1,111 @@
+---
+title: ""
+output: html_document
+---
+
+## 1. Title : Quality of the exercise can be predicted with the wearable device.
+
+## 2. Synopsis
+  The amount of exercise can be calculated by measuring the training time. However to measure quality of the exercise is challenging because it is hard to be measured and analyzed. Recently, variable wearable devices are available, and they can measure the movement of joints. Therefore the appropriateness of exercise can be qualified, and the quality can be extimated.
+  By analyzing the data from wearble devices, we can predict build a model to predict quality of exercise. By using it, one can estimate its own exercise's appropriateness.
+
+## 3. Data analysis
+```{r setup, echo=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, fig.align = "center", message=FALSE, warning=FALSE, 
+                      fig.height=3, fig.width=3, cache=TRUE, dpi = 300)
+```
+
+### Loading & preprocessing data
+```{r loading & preprocessing data}
+pml.training <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", header=TRUE)
+pml.testing <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", header=TRUE)
+
+library(caret);  library(ggplot2);  library(rattle)
+training <- pml.training[, c(8:160)]    # Fitbit data only
+
+# convert variable type : factor to numeric 
+factor.id <- which(sapply(training, is.factor));  factor.n <- length(factor.id)
+for(i in factor.id[-factor.n]){
+  training[, i] <- as.character(training[, i])
+  training[, i] <- as.numeric(training[, i])
+}
+
+##### Imputation #####
+# apply all NA values to zero (0)
+training[is.na(training)] <- 0
+
+##### Spliting the training data to training subset and testing subset #####
+inTrain <- createDataPartition(training$classe, p=0.7, list=FALSE)
+training.in <- training[inTrain,];  testing.in <- training[-inTrain,]
+dim(training.in);  dim(testing.in)
+```
+
+### Tree model 
+```{r Training - tree model}
+##### Tree model #####
+modFit.rpart <- train(classe ~ ., method="rpart", data=training.in)
+print(modFit.rpart)
+fancyRpartPlot(modFit.rpart$finalModel)
+
+pr.train.rpart <- predict(modFit.rpart, newdata=training.in)   # Training subset
+confusionMatrix(pr.train.rpart, training.in$classe)
+
+pr.test.rpart <- predict(modFit.rpart, newdata=testing.in)     # Testing subset
+confusionMatrix(pr.test.rpart, testing.in$classe)
+```
+- The accuracy of the model is 49.7% in the training set and 49.1% in the testing set. The accuracy of the training set is similar to one of the testing set.
+- The models with method, "rf", "lda" or "nb" are also tested, but they are stopped by error.
+
+### Prediction the classe of the pml.testing data
+```{r predicting the pml.testing data}
+##### Apply the tree model to pml.testing data #####
+testing <- pml.testing[, c(8:160)]
+factor.id <- which(sapply(testing, is.factor));  factor.n <- length(factor.id)
+
+for(i in factor.id[-factor.n]){
+  testing[, i] <- as.character(testing[, i])
+  testing[, i] <- as.numeric(testing[, i])
+}
+
+testing[is.na(testing)] <- 0
+predict(modFit.rpart, newdata=testing)
+```
+- By applying the tree model to the testing data, the prediction of the 20 different test cases can be accomplished.
+- All of the test cases are belong to "A" or "C".
+
+### Unsupervised model - kmeans
+```{r modeling - unsupervised kmeans : clstering}
+kMeans1 <- kmeans(subset(training.in, select=-c(classe)), centers=5)
+
+res.kmeans <- kMeans1$cluster
+res.kmeans[res.kmeans==1] <- "A";  res.kmeans[res.kmeans==2] <- "B";  
+res.kmeans[res.kmeans==3] <- "C";  res.kmeans[res.kmeans==4] <- "D";  
+res.kmeans[res.kmeans==5] <- "E"
+res.kmeans <- as.factor(res.kmeans)
+training.in$clusters <- res.kmeans
+
+confusionMatrix(training.in$clusters, training.in$classe)
+```
+- Although the results of the training data are known("classe"), unsupevised model is applied to compare the accuracy of the models.
+- The accuracy of the kmeans model is 19.4%, which is far less than the tree model.
+
+```{r modeling - unsupervised kmeans : modeling}
+modFit.kmeans <- train(clusters ~ ., data=subset(training.in, select=-c(classe)), method="rpart")
+pr.train.kmeans <- predict(modFit.kmeans, newdata=training.in)
+confusionMatrix(pr.train.kmeans, training.in$classe)
+
+pr.test.kmeans <- predict(modFit.kmeans, newdata=testing.in)
+confusionMatrix(pr.test.kmeans, testing.in$classe)
+
+predict(modFit.kmeans, newdata=testing)
+```
+- By using the result of unsupervised kmeans model rather than known variable(classe), the tree models are made to predict the classe.
+- The accuracy of the model is 16.1% in the training set and 15.7% in the testing set. The accuracy of the training set is similar to one of the testing set.
+- The prediction of the test cases are belong to "C", "D" or "E". The results are somewhat different to results of supervised tree model.
+
+## 4. Summary
+- By using the data of wearable device, quality of the exercise can be analyzed and it is possible to predict one's appropriateness of exercise.
+- A tree models were built to predict the multi-level categorical dependent variables.
+- The accuracy of the model was nearly 50% in the training file.
+- The prediction of the test cases was 40% accurate in the testing file.
+- The supervised tree model was more accurate than unsupervised kmeans model.
