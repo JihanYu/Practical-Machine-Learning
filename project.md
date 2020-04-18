@@ -330,7 +330,7 @@ predict(modFit.kmeans, newdata=testing)
 ```
 - By using the result of unsupervised kmeans model rather than known variable(classe), the tree models are made to predict the classe.
 - The accuracy of the model is 16.1% in the training set and 15.7% in the testing set. The accuracy of the training set is similar to one of the testing set.
-- The prediction of the test cases are belong to "C", "D" or "E". The results are somewhat different to results of supervised tree model.
+- The prediction of the test cases are belong to "A", "B" or "C". The results are somewhat different to results of supervised tree model.
 
 ## 4. Summary
 - By using the data of wearable device, quality of the exercise can be analyzed and it is possible to predict one's appropriateness of exercise.
